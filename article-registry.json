@@ -14,5 +14,7 @@
   {"file":"momoyama-moeka.html","name":"桃山もえか","reading":"ももやまもえか","aliases":[],"storeNames":["桃山もえか"]},
   {"file":"nemoto-asami.html","name":"根元あさみ","reading":"ねもと あさみ","aliases":[],"storeNames":["根元あさみ"]},
   {"file":"sakurai-ayu.html","name":"桜井あゆ","reading":"さくらいあゆ","aliases":[],"storeNames":["桜井あゆ"]},
-  {"file":"takamiya-yui.html","name":"鷹宮ゆい","reading":"たかみやゆい","aliases":[],"storeNames":["鷹宮ゆい"]}
+  {"file":"takamiya-yui.html","name":"鷹宮ゆい","reading":"たかみやゆい","aliases":[],"storeNames":["鷹宮ゆい"]},
+  {"file":"yurikawa-miori.html","name":"百合川みおり","reading":"ゆりかわみおり","aliases":["miori_yurikawa"],"storeNames":["夢子"]},
+  {"file":"hanano-haruhi.html","name":"花乃はるひ","reading":"はなのはるひ","aliases":["hananoharuhii"],"storeNames":["りぼん"]}
 ]
