@@ -3,3 +3,5 @@ Disallow: /article-template.html
 Disallow: /actress-detail.html
 Disallow: /area.html
 Disallow: /index-search.html
+
+Sitemap: https://av-guide-japan.netlify.app/sitemap.xml
