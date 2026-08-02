@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>お問い合わせ｜AV Guide</title>
+  <meta name="description" content="AV Guideへの一般お問い合わせ、掲載情報、権利関係、サイト不具合の連絡ページです。">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="お問い合わせ｜AV Guide">
+  <meta property="og:description" content="AV Guideへのお問い合わせ窓口です。">
+  <link rel="canonical" href="https://av-guide-japan.netlify.app/contact.html">
+  <meta property="og:url" content="https://av-guide-japan.netlify.app/contact.html">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="siteHeader"></div>
+    <main>
+      <section class="page-hero"><p class="eyebrow">CONTACT</p><h1>お問い合わせ</h1><p>ご質問や掲載方針に関するご連絡を受け付けています。</p></section>
+      <section class="section">
+        <p class="prep-note">個人情報、本人確認書類、住所などの機密情報は送信しないでください。</p>
+        <p>メールアプリから、以下のメールアドレスへお問い合わせください。</p>
+        <a class="text-link" href="mailto:avguide_contact@ymail.ne.jp">avguide_contact@ymail.ne.jp</a>
+        <form class="form-card" id="contactForm"><label for="contactName">名前</label><input id="contactName" type="text" autocomplete="name"><label for="contactEmail">メールアドレス</label><input id="contactEmail" type="email" autocomplete="email"><label for="contactType">お問い合わせ種別</label><select id="contactType"><option>一般お問い合わせ</option><option>掲載情報について</option><option>権利関係</option><option>サイトの不具合</option><option>その他</option></select><label for="contactMessage">お問い合わせ内容</label><textarea id="contactMessage" rows="7"></textarea><button type="submit">送信する</button><p class="form-status" id="contactStatus" aria-live="polite" hidden></p></form>
+      </section>
+    </main>
+    <div id="siteFooter"></div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
