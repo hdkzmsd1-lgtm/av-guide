@@ -18,22 +18,49 @@ function emptyResponse() {
   return jsonResponse({ works: [] }, "public, max-age=300, s-maxage=3600");
 }
 
-function diagnosticResponse(works, diagnostic) {
-  return jsonResponse({ works, debug: diagnostic }, "no-store");
+function diagnosticResponse(diagnostic) {
+  return jsonResponse({ debug: diagnostic }, "no-store");
 }
 
-function isAllowedDmmUrl(value) {
+function isOfficialDmmHost(host) {
+  return host === "dmm.com" || host.endsWith(".dmm.com") ||
+    host === "dmm.co.jp" || host.endsWith(".dmm.co.jp") ||
+    host === "fanza.com" || host.endsWith(".fanza.com");
+}
+
+function inspectDmmUrl(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const result = {
+    hasUrl: Boolean(raw),
+    protocol: null,
+    host: null,
+    allowedBeforeNormalization: false,
+    allowedAfterNormalization: false,
+    normalizedUrl: ""
+  };
+  if (!raw) return result;
+
   try {
-    const url = new URL(value);
+    const url = new URL(raw);
     const host = url.hostname.toLowerCase();
-    return url.protocol === "https:" && (
-      host === "dmm.com" || host.endsWith(".dmm.com") ||
-      host === "dmm.co.jp" || host.endsWith(".dmm.co.jp") ||
-      host === "fanza.com" || host.endsWith(".fanza.com")
-    );
+    const officialHost = isOfficialDmmHost(host);
+    result.protocol = url.protocol;
+    result.host = host;
+    result.allowedBeforeNormalization = url.protocol === "https:" && officialHost;
+    if (url.protocol === "http:" && officialHost) url.protocol = "https:";
+    result.allowedAfterNormalization = url.protocol === "https:" && officialHost;
+    if (result.allowedAfterNormalization) result.normalizedUrl = url.toString();
   } catch {
-    return false;
+    // Invalid and empty URLs remain rejected without exposing their value.
   }
+  return result;
+}
+
+function selectAllowedDmmUrl(values) {
+  const inspections = values.map(inspectDmmUrl);
+  return inspections.find(candidate => candidate.allowedAfterNormalization) ||
+    inspections.find(candidate => candidate.hasUrl) ||
+    inspectDmmUrl("");
 }
 
 function normalizeName(value) {
@@ -56,8 +83,17 @@ function sanitizeMessage(value, secrets) {
 function resultMeta(payload, secrets) {
   return {
     status: payload?.result?.status ?? null,
-    message: sanitizeMessage(payload?.result?.message, secrets)
+    message: sanitizeMessage(payload?.result?.message, secrets),
+    errors: sanitizeErrors(payload?.result?.errors, secrets)
   };
+}
+
+function sanitizeErrors(value, secrets) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.fromEntries(Object.entries(value).slice(0, 20).map(([key, message]) => [
+    String(key).slice(0, 100),
+    sanitizeMessage(message, secrets)
+  ]));
 }
 
 async function fetchDmmJson(endpoint, params) {
@@ -119,22 +155,35 @@ function initialDiagnostic(apiId, affiliateId) {
       httpStatus: null,
       resultStatus: null,
       resultMessage: null,
+      resultErrors: null,
       retrievedCount: 0,
       exactMatchCount: 0,
-      adoptedActressId: null
+      adoptedActressId: null,
+      parameters: {
+        endpoint: "ActressSearch",
+        version: "v3",
+        keyword: TARGET_ACTRESS,
+        hits: 100,
+        output: "json",
+        site: null,
+        service: null
+      }
     },
     FloorList: {
       httpStatus: null,
       resultStatus: null,
       resultMessage: null,
+      resultErrors: null,
       found: { site: false, service: false, floor: false }
     },
     ItemList: {
       httpStatus: null,
       resultStatus: null,
       resultMessage: null,
+      resultErrors: null,
       retrievedCount: 0,
       adoptedCount: 0,
+      validation: [],
       parameters: {
         article: "actress",
         article_id: null,
@@ -156,14 +205,22 @@ exports.handler = async function handler(event) {
   }
 
   const debug = event?.queryStringParameters?.debug === "1";
-  const apiId = process.env.DMM_API_ID;
-  const affiliateId = process.env.DMM_AFFILIATE_ID;
+  const apiId = process.env.DMM_API_ID || "";
+  const affiliateId = process.env.DMM_AFFILIATE_ID || "";
   const diagnostic = initialDiagnostic(apiId, affiliateId);
   const finish = (works, stage, reason) => {
     if (!debug) return works.length ? jsonResponse({ works }, "public, max-age=300, s-maxage=3600") : emptyResponse();
     diagnostic.stage = stage;
     diagnostic.reason = reason;
-    return diagnosticResponse(works, diagnostic);
+    return diagnosticResponse(diagnostic);
+  };
+
+  const actressParams = {
+    api_id: apiId,
+    affiliate_id: affiliateId,
+    output: "json",
+    keyword: TARGET_ACTRESS,
+    hits: "100"
   };
 
   if (!apiId || !affiliateId) return finish([], "environment", "missing_environment_variable");
@@ -171,11 +228,7 @@ exports.handler = async function handler(event) {
   const auth = { api_id: apiId, affiliate_id: affiliateId, output: "json" };
   const secrets = [apiId, affiliateId];
 
-  const actressResult = await fetchDmmJson("ActressSearch", {
-    ...auth,
-    keyword: TARGET_ACTRESS,
-    hits: "100"
-  });
+  const actressResult = await fetchDmmJson("ActressSearch", actressParams);
   const actressCandidates = Array.isArray(actressResult.payload?.result?.actress)
     ? actressResult.payload.result.actress
     : [];
@@ -185,6 +238,7 @@ exports.handler = async function handler(event) {
     httpStatus: actressResult.httpStatus,
     resultStatus: actressMeta.status,
     resultMessage: actressMeta.message,
+    resultErrors: actressMeta.errors,
     retrievedCount: actressCandidates.length,
     exactMatchCount: exactIds.length,
     adoptedActressId: exactIds.length === 1 ? exactIds[0] : null
@@ -203,6 +257,7 @@ exports.handler = async function handler(event) {
     httpStatus: floorResult.httpStatus,
     resultStatus: floorMeta.status,
     resultMessage: floorMeta.message,
+    resultErrors: floorMeta.errors,
     found: floorInspection.found
   });
   if (floorResult.requestFailed) return finish([], "FloorList", "request_failed");
@@ -224,23 +279,54 @@ exports.handler = async function handler(event) {
   });
   const itemMeta = resultMeta(itemResult.payload, secrets);
   const items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+  const validation = [];
   const works = items.slice(0, 3).map(item => {
-    const image = item?.imageURL?.large || item?.imageURL?.list || item?.imageURL?.small || "";
-    const affiliateUrl = item?.affiliateURL || "";
-    if (!item?.title || !isAllowedDmmUrl(image) || !isAllowedDmmUrl(affiliateUrl)) return null;
+    const image = selectAllowedDmmUrl([
+      item?.imageURL?.large,
+      item?.imageURL?.list,
+      item?.imageURL?.small
+    ]);
+    const affiliateUrl = selectAllowedDmmUrl([
+      item?.affiliateURL,
+      item?.affiliateURLsp
+    ]);
+    const rejectionReasons = [];
+    if (!item?.title) rejectionReasons.push("missing_title");
+    if (!image.hasUrl) rejectionReasons.push("missing_image");
+    else if (!image.allowedAfterNormalization) rejectionReasons.push("image_url_not_allowed");
+    if (!affiliateUrl.hasUrl) rejectionReasons.push("missing_affiliate_url");
+    else if (!affiliateUrl.allowedAfterNormalization) rejectionReasons.push("affiliate_url_not_allowed");
+    validation.push({
+      hasTitle: Boolean(item?.title),
+      hasImage: image.hasUrl,
+      imageProtocol: image.protocol,
+      imageHost: image.host,
+      imageAllowedBeforeNormalization: image.allowedBeforeNormalization,
+      imageAllowedAfterNormalization: image.allowedAfterNormalization,
+      hasAffiliateUrl: affiliateUrl.hasUrl,
+      affiliateProtocol: affiliateUrl.protocol,
+      affiliateHost: affiliateUrl.host,
+      affiliateAllowedBeforeNormalization: affiliateUrl.allowedBeforeNormalization,
+      affiliateAllowedAfterNormalization: affiliateUrl.allowedAfterNormalization,
+      hasReleaseDate: Boolean(item?.date),
+      rejectionReasons
+    });
+    if (rejectionReasons.length) return null;
     return {
       title: String(item.title),
       releaseDate: item.date ? String(item.date) : "",
-      image,
-      affiliateUrl
+      image: image.normalizedUrl,
+      affiliateUrl: affiliateUrl.normalizedUrl
     };
   }).filter(Boolean);
   Object.assign(diagnostic.ItemList, {
     httpStatus: itemResult.httpStatus,
     resultStatus: itemMeta.status,
     resultMessage: itemMeta.message,
+    resultErrors: itemMeta.errors,
     retrievedCount: items.length,
-    adoptedCount: works.length
+    adoptedCount: works.length,
+    validation
   });
   if (itemResult.requestFailed) return finish([], "ItemList", "request_failed");
   if (!itemResult.payload) return finish([], "ItemList", "invalid_json_response");
