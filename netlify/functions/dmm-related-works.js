@@ -1,7 +1,7 @@
 "use strict";
 
-const DMM_API_URL = "https://api.dmm.com/affiliate/v3/ItemList";
-const SEARCH_KEYWORD = "華宮椎奈";
+const DMM_API_BASE_URL = "https://api.dmm.com/affiliate/v3/";
+const TARGET_ACTRESS = "華宮椎奈";
 
 function emptyResponse() {
   return {
@@ -28,6 +28,49 @@ function isAllowedDmmUrl(value) {
   }
 }
 
+function normalizeName(value) {
+  return String(value || "").normalize("NFKC").replace(/[\s　]+/g, "");
+}
+
+async function fetchDmmJson(endpoint, params) {
+  const requestUrl = new URL(endpoint, DMM_API_BASE_URL);
+  requestUrl.search = new URLSearchParams(params).toString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(requestUrl, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function findExactActressId(payload) {
+  const candidates = Array.isArray(payload?.result?.actress) ? payload.result.actress : [];
+  const target = normalizeName(TARGET_ACTRESS);
+  const exactIds = [...new Set(candidates
+    .filter(candidate => normalizeName(candidate?.name) === target)
+    .map(candidate => String(candidate?.id || ""))
+    .filter(Boolean))];
+  return exactIds.length === 1 ? exactIds[0] : "";
+}
+
+function findFanzaVideoFloor(payload) {
+  const sites = Array.isArray(payload?.result?.site) ? payload.result.site : [];
+  const site = sites.find(candidate => candidate?.code === "FANZA");
+  const services = Array.isArray(site?.service) ? site.service : [];
+  const service = services.find(candidate => candidate?.code === "digital");
+  const floors = Array.isArray(service?.floor) ? service.floor : [];
+  const floor = floors.find(candidate => candidate?.code === "videoa");
+  if (!site || !service || !floor) return null;
+  return { site: site.code, service: service.code, floor: floor.code };
+}
+
 exports.handler = async function handler(event) {
   if (event?.httpMethod && event.httpMethod !== "GET") {
     return { statusCode: 405, headers: { Allow: "GET" }, body: "" };
@@ -37,30 +80,29 @@ exports.handler = async function handler(event) {
   const affiliateId = process.env.DMM_AFFILIATE_ID;
   if (!apiId || !affiliateId) return emptyResponse();
 
-  const requestUrl = new URL(DMM_API_URL);
-  requestUrl.search = new URLSearchParams({
-    api_id: apiId,
-    affiliate_id: affiliateId,
-    site: "FANZA",
-    service: "digital",
-    floor: "videoa",
-    hits: "3",
-    sort: "date",
-    keyword: SEARCH_KEYWORD,
-    output: "json"
-  }).toString();
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const auth = { api_id: apiId, affiliate_id: affiliateId, output: "json" };
 
   try {
-    const response = await fetch(requestUrl, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal
+    const actressPayload = await fetchDmmJson("ActressSearch", {
+      ...auth,
+      keyword: TARGET_ACTRESS,
+      hits: "100"
     });
-    if (!response.ok) return emptyResponse();
+    const actressId = findExactActressId(actressPayload);
+    if (!actressId) return emptyResponse();
 
-    const payload = await response.json();
+    const floorPayload = await fetchDmmJson("FloorList", auth);
+    const fanzaVideo = findFanzaVideoFloor(floorPayload);
+    if (!fanzaVideo) return emptyResponse();
+
+    const payload = await fetchDmmJson("ItemList", {
+      ...auth,
+      ...fanzaVideo,
+      article: "actress",
+      article_id: actressId,
+      hits: "3",
+      sort: "date"
+    });
     const items = Array.isArray(payload?.result?.items) ? payload.result.items : [];
     const works = items.slice(0, 3).map(item => {
       const image = item?.imageURL?.large || item?.imageURL?.list || item?.imageURL?.small || "";
@@ -84,7 +126,5 @@ exports.handler = async function handler(event) {
     };
   } catch {
     return emptyResponse();
-  } finally {
-    clearTimeout(timeout);
   }
 };
