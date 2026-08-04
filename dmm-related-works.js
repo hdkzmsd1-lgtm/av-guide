@@ -18,7 +18,9 @@
     if (!response.ok) return;
 
     const payload = await response.json();
-    if (!Array.isArray(payload?.works) || payload.works.length === 0) return;
+    if (!Array.isArray(payload?.works) || payload.works.length === 0) {
+      if (!topSections.length) return;
+    }
 
     const createCards = (works, includeDate, includeMaker) => {
       const fragment = document.createDocumentFragment();
@@ -64,6 +66,34 @@
       });
       return fragment;
     };
+
+    const representativeCards = [...document.querySelectorAll(".article-list .text-article-card[data-actress]")];
+    for (const card of representativeCards) {
+      const actressName = card.dataset.actress;
+      if (!actressName || card.querySelector(".dmm-representative-image")) continue;
+      try {
+        const cardResponse = actressName === actress ? response : await fetch(`/.netlify/functions/dmm-related-works?actress=${encodeURIComponent(actressName)}`, {
+          headers: { Accept: "application/json" },
+          credentials: "same-origin"
+        });
+        if (!cardResponse.ok) continue;
+        const cardPayload = actressName === actress ? payload : await cardResponse.json();
+        const work = Array.isArray(cardPayload?.works) ? cardPayload.works[0] : null;
+        if (!work?.image || !work?.title) continue;
+        const image = document.createElement("img");
+        image.className = "dmm-representative-image";
+        image.src = work.image;
+        image.alt = `${actressName} 関連作品（PR）`;
+        image.loading = "lazy";
+        image.decoding = "async";
+        const label = document.createElement("span");
+        label.className = "dmm-representative-label";
+        label.textContent = "PR";
+        card.prepend(label, image);
+      } catch {
+        // 取得失敗時は従来の文字カードを維持します。
+      }
+    }
 
     if (section && list) {
       const fragment = createCards(payload.works.slice(0, 3), true, true);
