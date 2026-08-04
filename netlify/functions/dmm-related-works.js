@@ -5,6 +5,8 @@ const DEFAULT_ACTRESS = "華宮椎奈";
 const NAGISA_ACTRESS = "渚このみ";
 const HONJO_ACTRESS = "本庄ひな";
 const HONJO_ALIAS = "菊川みつ葉";
+const NANASE_ACTRESS = "七瀬そら";
+const NANASE_ALIAS = "羽澄うい";
 
 function jsonResponse(body, cacheControl) {
   return {
@@ -241,12 +243,13 @@ exports.handler = async function handler(event) {
     ? actressResult.payload.result.actress
     : [];
   let exactIds = exactActressIds(actressResult.payload, targetActress);
-  if (targetActress === HONJO_ACTRESS && exactIds.length === 0) {
-    actressResult = await fetchDmmJson("ActressSearch", { ...actressParams, keyword: HONJO_ALIAS });
+  if ((targetActress === HONJO_ACTRESS || targetActress === NANASE_ACTRESS) && exactIds.length === 0) {
+    const alias = targetActress === HONJO_ACTRESS ? HONJO_ALIAS : NANASE_ALIAS;
+    actressResult = await fetchDmmJson("ActressSearch", { ...actressParams, keyword: alias });
     actressCandidates = Array.isArray(actressResult.payload?.result?.actress)
       ? actressResult.payload.result.actress
       : [];
-    exactIds = exactActressIds(actressResult.payload, HONJO_ALIAS);
+    exactIds = exactActressIds(actressResult.payload, alias);
   }
   const actressMeta = resultMeta(actressResult.payload, secrets);
   Object.assign(diagnostic.ActressSearch, {

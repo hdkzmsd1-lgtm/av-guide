@@ -22,5 +22,7 @@
   {"file":"otoha-yuua.html","name":"音羽ゆうあ","reading":"おとは ゆうあ","aliases":[],"storeNames":["みく☆新人","すみれ","しおり","ふわあまりり"]},
   {"file":"nagisa-konomi.html","name":"渚このみ","reading":"なぎさこのみ","aliases":[],"storeNames":["★柳楽みさ★","TSUKI"]},
   {"file":"sakamoto-yumiko.html","name":"坂本優美子","reading":"","aliases":[],"storeNames":["舞","長谷川（はせがわ）"]},
-  {"file":"honjo-hina.html","name":"本庄ひな","reading":"ほんじょうひな","aliases":["菊川みつ葉"],"storeNames":["菊川みつ葉"]}
+  {"file":"honjo-hina.html","name":"本庄ひな","reading":"ほんじょうひな","aliases":["菊川みつ葉"],"storeNames":["菊川みつ葉"]},
+  {"file":"nanase-sora.html","name":"七瀬そら","reading":"ななせそら","aliases":["羽澄うい"],"storeNames":["羽澄うい"]},
+  {"file":"amamiya-kasumi.html","name":"天宮かすみ","reading":"","aliases":[],"storeNames":["杏"]}
 ]
