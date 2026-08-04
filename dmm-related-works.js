@@ -18,6 +18,7 @@
     if (!response.ok) return;
 
     const payload = await response.json();
+    if (payload?.actress && payload.actress !== actress) return;
     if (!Array.isArray(payload?.works) || payload.works.length === 0) {
       if (!topSections.length) return;
     }
@@ -67,9 +68,9 @@
       return fragment;
     };
 
-    const representativeCards = [...document.querySelectorAll(".article-list .text-article-card[data-actress]")];
+    const representativeCards = [...document.querySelectorAll("#latest .article-list .text-article-card")];
     for (const card of representativeCards) {
-      const actressName = card.dataset.actress;
+      const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
       if (!actressName || card.querySelector(".dmm-representative-image")) continue;
       try {
         const cardResponse = actressName === actress ? response : await fetch(`/.netlify/functions/dmm-related-works?actress=${encodeURIComponent(actressName)}`, {

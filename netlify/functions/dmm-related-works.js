@@ -210,18 +210,18 @@ exports.handler = async function handler(event) {
 
   const debug = event?.queryStringParameters?.debug === "1";
   const requestedActress = event?.queryStringParameters?.actress;
-  const targetActress = requestedActress === NAGISA_ACTRESS || requestedActress === HONJO_ACTRESS
-    ? requestedActress
-    : DEFAULT_ACTRESS;
+  const targetActress = requestedActress?.trim() || "";
   const apiId = process.env.DMM_API_ID || "";
   const affiliateId = process.env.DMM_AFFILIATE_ID || "";
   const diagnostic = initialDiagnostic(apiId, affiliateId, targetActress);
   const finish = (works, stage, reason) => {
-    if (!debug) return works.length ? jsonResponse({ works }, "public, max-age=300, s-maxage=3600") : emptyResponse();
+    if (!debug) return works.length ? jsonResponse({ works, actress: targetActress }, "public, max-age=300, s-maxage=3600") : emptyResponse();
     diagnostic.stage = stage;
     diagnostic.reason = reason;
     return diagnosticResponse(diagnostic);
   };
+
+  if (!targetActress) return finish([], "request", "missing_actress_parameter");
 
   const actressParams = {
     api_id: apiId,

@@ -40,6 +40,14 @@
                 <div><dt>最終確認日</dt><dd>確認後に入力</dd></div>
               </dl>
             </div>
+            <section class="affiliate-banner-section article-banner-top" aria-label="広告"><p class="affiliate-banner-label">PR</p><div class="affiliate-banner-frame"><ins class="widget-banner"></ins><script class="widget-banner-script" src="https://widget-view.dmm.co.jp/js/banner_placement.js?affiliate_id=AVGuide-001&banner_id=1083_728_90"></script></div></section>
+            <!-- 新規記事作成時：data-actress を実際の女優名に変更します。作品がない場合は非表示のままです。 -->
+            <section id="dmmRelatedWorks" class="dmm-related-works article-banner-aware" data-actress="女優名" aria-labelledby="related-works-heading" hidden>
+              <div class="dmm-section-heading"><h2 id="related-works-heading">関連作品（PR）</h2><span class="pr-label">PR</span></div>
+              <p>DMM Webサービスを利用して、FANZAで配信されている関連作品を表示しています。</p>
+              <div id="dmmRelatedWorksList" class="dmm-work-list"></div>
+              <p class="dmm-credit"><a href="https://affiliate.dmm.com/api/" target="_blank" rel="noopener noreferrer">Powered by DMM.com Webサービス</a></p>
+            </section>
             <div class="store-card-list">
               <!-- 在籍店舗ごとにこのカードを1件追加します。店舗ごとに別記事は作りません。 -->
               <section class="store-card">
@@ -79,6 +87,7 @@
             <p>未使用の情報源は、実際の記事作成時に削除します。</p>
           </section>
           <aside class="notice" aria-label="掲載内容についての注意事項">掲載情報は確認日時点の内容です。在籍状況、出勤予定、店舗情報などは変更される場合があります。予約や利用を検討する場合は、必ず店舗公式サイトで最新情報をご確認ください。</aside>
+          <section class="affiliate-banner-section article-banner-bottom" aria-label="広告"><p class="affiliate-banner-label">PR</p><div class="affiliate-banner-frame"><ins class="widget-banner"></ins><script class="widget-banner-script" src="https://widget-view.dmm.co.jp/js/banner_placement.js?affiliate_id=AVGuide-001&banner_id=1082_728_90"></script></div></section>
           <section aria-labelledby="works-heading">
             <h2 id="works-heading">FANZA出演作品</h2>
             <p>商品情報はDMM Webサービスを利用して取得しています。商品リンクには広告（PR）が含まれます。最新情報はFANZA公式サイトをご確認ください。</p>
@@ -103,5 +112,6 @@
     <div id="siteFooter"></div>
   </div>
   <script src="script.js?v=20260729-store-links"></script>
+  <script src="dmm-related-works.js"></script>
 </body>
 </html>
