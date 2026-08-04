@@ -1,7 +1,10 @@
 "use strict";
 
 const DMM_API_BASE_URL = "https://api.dmm.com/affiliate/v3/";
-const TARGET_ACTRESS = "華宮椎奈";
+const DEFAULT_ACTRESS = "華宮椎奈";
+const NAGISA_ACTRESS = "渚このみ";
+const HONJO_ACTRESS = "本庄ひな";
+const HONJO_ALIAS = "菊川みつ葉";
 
 function jsonResponse(body, cacheControl) {
   return {
@@ -25,7 +28,8 @@ function diagnosticResponse(diagnostic) {
 function isOfficialDmmHost(host) {
   return host === "dmm.com" || host.endsWith(".dmm.com") ||
     host === "dmm.co.jp" || host.endsWith(".dmm.co.jp") ||
-    host === "fanza.com" || host.endsWith(".fanza.com");
+    host === "fanza.com" || host.endsWith(".fanza.com") ||
+    host === "fanza.co.jp" || host.endsWith(".fanza.co.jp");
 }
 
 function inspectDmmUrl(value) {
@@ -121,9 +125,9 @@ async function fetchDmmJson(endpoint, params) {
   }
 }
 
-function exactActressIds(payload) {
+function exactActressIds(payload, targetActress) {
   const candidates = Array.isArray(payload?.result?.actress) ? payload.result.actress : [];
-  const target = normalizeName(TARGET_ACTRESS);
+  const target = normalizeName(targetActress);
   return [...new Set(candidates
     .filter(candidate => normalizeName(candidate?.name) === target)
     .map(candidate => String(candidate?.id || ""))
@@ -145,7 +149,7 @@ function inspectFanzaVideoFloor(payload) {
   };
 }
 
-function initialDiagnostic(apiId, affiliateId) {
+function initialDiagnostic(apiId, affiliateId, targetActress) {
   return {
     environment: {
       DMM_API_ID: Boolean(apiId),
@@ -162,7 +166,7 @@ function initialDiagnostic(apiId, affiliateId) {
       parameters: {
         endpoint: "ActressSearch",
         version: "v3",
-        keyword: TARGET_ACTRESS,
+        keyword: targetActress,
         hits: 100,
         output: "json",
         site: null,
@@ -205,9 +209,13 @@ exports.handler = async function handler(event) {
   }
 
   const debug = event?.queryStringParameters?.debug === "1";
+  const requestedActress = event?.queryStringParameters?.actress;
+  const targetActress = requestedActress === NAGISA_ACTRESS || requestedActress === HONJO_ACTRESS
+    ? requestedActress
+    : DEFAULT_ACTRESS;
   const apiId = process.env.DMM_API_ID || "";
   const affiliateId = process.env.DMM_AFFILIATE_ID || "";
-  const diagnostic = initialDiagnostic(apiId, affiliateId);
+  const diagnostic = initialDiagnostic(apiId, affiliateId, targetActress);
   const finish = (works, stage, reason) => {
     if (!debug) return works.length ? jsonResponse({ works }, "public, max-age=300, s-maxage=3600") : emptyResponse();
     diagnostic.stage = stage;
@@ -219,7 +227,7 @@ exports.handler = async function handler(event) {
     api_id: apiId,
     affiliate_id: affiliateId,
     output: "json",
-    keyword: TARGET_ACTRESS,
+    keyword: targetActress,
     hits: "100"
   };
 
@@ -228,11 +236,18 @@ exports.handler = async function handler(event) {
   const auth = { api_id: apiId, affiliate_id: affiliateId, output: "json" };
   const secrets = [apiId, affiliateId];
 
-  const actressResult = await fetchDmmJson("ActressSearch", actressParams);
-  const actressCandidates = Array.isArray(actressResult.payload?.result?.actress)
+  let actressResult = await fetchDmmJson("ActressSearch", actressParams);
+  let actressCandidates = Array.isArray(actressResult.payload?.result?.actress)
     ? actressResult.payload.result.actress
     : [];
-  const exactIds = exactActressIds(actressResult.payload);
+  let exactIds = exactActressIds(actressResult.payload, targetActress);
+  if (targetActress === HONJO_ACTRESS && exactIds.length === 0) {
+    actressResult = await fetchDmmJson("ActressSearch", { ...actressParams, keyword: HONJO_ALIAS });
+    actressCandidates = Array.isArray(actressResult.payload?.result?.actress)
+      ? actressResult.payload.result.actress
+      : [];
+    exactIds = exactActressIds(actressResult.payload, HONJO_ALIAS);
+  }
   const actressMeta = resultMeta(actressResult.payload, secrets);
   Object.assign(diagnostic.ActressSearch, {
     httpStatus: actressResult.httpStatus,
@@ -315,6 +330,7 @@ exports.handler = async function handler(event) {
     return {
       title: String(item.title),
       releaseDate: item.date ? String(item.date) : "",
+      maker: item?.iteminfo?.maker?.[0]?.name ? String(item.iteminfo.maker[0].name) : "",
       image: image.normalizedUrl,
       affiliateUrl: affiliateUrl.normalizedUrl
     };

@@ -3,10 +3,15 @@
 (async function loadRelatedWorks() {
   const section = document.querySelector("#dmmRelatedWorks");
   const list = document.querySelector("#dmmRelatedWorksList");
-  if (!section || !list) return;
+  const topSections = [...document.querySelectorAll(".dmm-top-product")];
+  if ((!section || !list) && !topSections.length) return;
 
   try {
-    const response = await fetch("/.netlify/functions/dmm-related-works", {
+    const actress = section?.dataset.actress || topSections[0]?.dataset.actress;
+    const endpoint = actress
+      ? `/.netlify/functions/dmm-related-works?actress=${encodeURIComponent(actress)}`
+      : "/.netlify/functions/dmm-related-works";
+    const response = await fetch(endpoint, {
       headers: { Accept: "application/json" },
       credentials: "same-origin"
     });
@@ -15,8 +20,9 @@
     const payload = await response.json();
     if (!Array.isArray(payload?.works) || payload.works.length === 0) return;
 
-    const fragment = document.createDocumentFragment();
-    payload.works.slice(0, 3).forEach(work => {
+    const createCards = (works, includeDate, includeMaker) => {
+      const fragment = document.createDocumentFragment();
+      works.forEach(work => {
       if (!work?.title || !work?.image || !work?.affiliateUrl) return;
 
       const card = document.createElement("article");
@@ -33,10 +39,16 @@
       title.textContent = work.title;
       details.append(title);
 
-      if (work.releaseDate) {
+      if (includeDate && work.releaseDate) {
         const date = document.createElement("p");
         date.textContent = `発売日：${work.releaseDate}`;
         details.append(date);
+      }
+
+      if (includeMaker && work.maker) {
+        const maker = document.createElement("p");
+        maker.textContent = `メーカー：${work.maker}`;
+        details.append(maker);
       }
 
       const link = document.createElement("a");
@@ -49,11 +61,52 @@
 
       card.append(image, details);
       fragment.append(card);
-    });
+      });
+      return fragment;
+    };
 
-    if (!fragment.childNodes.length) return;
-    list.replaceChildren(fragment);
-    section.hidden = false;
+    if (section && list) {
+      const fragment = createCards(payload.works.slice(0, 3), true, true);
+      if (fragment.childNodes.length) {
+        list.replaceChildren(fragment);
+        section.hidden = false;
+      }
+    }
+    for (const topSection of topSections) {
+      const topList = topSection.querySelector(".dmm-work-list");
+      if (!topList) continue;
+      let topPayload = payload;
+      if (topSection.dataset.actress && topSection.dataset.actress !== actress) {
+        const topResponse = await fetch(`/.netlify/functions/dmm-related-works?actress=${encodeURIComponent(topSection.dataset.actress)}`, {
+          headers: { Accept: "application/json" },
+          credentials: "same-origin"
+        });
+        if (topResponse.ok) topPayload = await topResponse.json();
+      }
+      const fragment = createCards(Array.isArray(topPayload?.works) ? topPayload.works.slice(0, 1) : [], false, false);
+      if (fragment.childNodes.length) {
+        topList.replaceChildren(fragment);
+        const articleUrl = topSection.dataset.articleUrl;
+        if (articleUrl) {
+          topList.querySelectorAll(".dmm-work-card").forEach(card => {
+            card.tabIndex = 0;
+            card.setAttribute("role", "link");
+            const openArticle = event => {
+              if (event.target.closest("a")) return;
+              window.location.href = articleUrl;
+            };
+            card.addEventListener("click", openArticle);
+            card.addEventListener("keydown", event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openArticle(event);
+              }
+            });
+          });
+        }
+        topSection.hidden = false;
+      }
+    }
   } catch {
     // APIエラー時は関連作品欄を非表示のままにします。
   }
