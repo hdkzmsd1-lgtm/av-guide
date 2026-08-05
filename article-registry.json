@@ -25,5 +25,6 @@
   {"file":"honjo-hina.html","name":"本庄ひな","reading":"ほんじょうひな","aliases":["菊川みつ葉"],"storeNames":["菊川みつ葉"]},
   {"file":"nanase-sora.html","name":"七瀬そら","reading":"ななせそら","aliases":["羽澄うい"],"storeNames":["羽澄うい"]},
   {"file":"amamiya-kasumi.html","name":"天宮かすみ","reading":"","aliases":[],"storeNames":["杏"]},
-  {"file":"jin-yuki.html","name":"神ユキ","reading":"じんゆき","aliases":[],"storeNames":["神ユキ"]}
+  {"file":"jin-yuki.html","name":"神ユキ","reading":"じんゆき","aliases":[],"storeNames":["神ユキ"]},
+  {"file":"hinata-yura.html","name":"日向ゆら","reading":"ひなたゆら","aliases":[],"storeNames":["NONOKA【ののか】"]}
 ]
