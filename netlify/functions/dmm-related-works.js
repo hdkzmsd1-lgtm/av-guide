@@ -7,6 +7,11 @@ const HONJO_ACTRESS = "本庄ひな";
 const HONJO_ALIAS = "菊川みつ葉";
 const NANASE_ACTRESS = "七瀬そら";
 const NANASE_ALIAS = "羽澄うい";
+const ACTRESS_ALIASES = {
+  "日向ゆら": ["NONOKA", "ののか"],
+  "本庄ひな": [HONJO_ALIAS],
+  "七瀬そら": [NANASE_ALIAS]
+};
 
 function jsonResponse(body, cacheControl) {
   return {
@@ -71,6 +76,19 @@ function selectAllowedDmmUrl(values) {
 
 function normalizeName(value) {
   return String(value || "").normalize("NFKC").replace(/[\s　]+/g, "");
+}
+
+function scoreWorkTitle(title, actress) {
+  const normalizedTitle = normalizeName(title).toLowerCase();
+  const normalizedActress = normalizeName(actress).toLowerCase();
+  let score = normalizedActress && normalizedTitle.includes(normalizedActress) ? 100 : 0;
+  (ACTRESS_ALIASES[actress] || []).forEach(alias => {
+    if (normalizeName(alias) && normalizedTitle.includes(normalizeName(alias).toLowerCase())) score += 35;
+  });
+  ["12人", "総集編", "ベスト", "大全", "コンプリート", "狙われた", "女の子たち", "複数", "オムニバス"].forEach(keyword => {
+    if (normalizedTitle.includes(normalizeName(keyword).toLowerCase())) score -= 20;
+  });
+  return score;
 }
 
 function sanitizeMessage(value, secrets) {
@@ -197,7 +215,7 @@ function initialDiagnostic(apiId, affiliateId, targetActress) {
         service: null,
         floor: null,
         sort: "date",
-        hits: 3
+        hits: 20
       }
     },
     stage: "environment",
@@ -292,13 +310,13 @@ exports.handler = async function handler(event) {
     ...floorInspection.value,
     article: "actress",
     article_id: actressId,
-    hits: "3",
+    hits: "20",
     sort: "date"
   });
   const itemMeta = resultMeta(itemResult.payload, secrets);
   const items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
   const validation = [];
-  const works = items.slice(0, 3).map(item => {
+  const works = items.map((item, index) => {
     const image = selectAllowedDmmUrl([
       item?.imageURL?.large,
       item?.imageURL?.list,
@@ -331,13 +349,15 @@ exports.handler = async function handler(event) {
     });
     if (rejectionReasons.length) return null;
     return {
+      _score: scoreWorkTitle(String(item.title), targetActress),
+      _index: index,
       title: String(item.title),
       releaseDate: item.date ? String(item.date) : "",
       maker: item?.iteminfo?.maker?.[0]?.name ? String(item.iteminfo.maker[0].name) : "",
       image: image.normalizedUrl,
       affiliateUrl: affiliateUrl.normalizedUrl
     };
-  }).filter(Boolean);
+  }).filter(Boolean).sort((a, b) => b._score - a._score || a._index - b._index).slice(0, 3).map(({ _score, _index, ...work }) => work);
   Object.assign(diagnostic.ItemList, {
     httpStatus: itemResult.httpStatus,
     resultStatus: itemMeta.status,
