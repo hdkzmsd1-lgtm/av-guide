@@ -1,4 +1,6 @@
 [
+  {"file":"kiyomi-reno.html","name":"清巳れの","reading":"きよみれの","aliases":[],"storeNames":["みなみ"]},
+  {"file":"ayane-kanon.html","name":"彩音かのん","reading":"あやねかのん","aliases":[],"storeNames":["彩音かのん"]},
   {"file":"aoba-nanami.html","name":"蒼羽ななみ","reading":"あおばななみ","aliases":["ななみ","蒼井"],"storeNames":["結城ま○か","蒼羽な○み"]},
   {"file":"akari-nonoka.html","name":"有加里ののか","reading":"あかりののか","aliases":[],"storeNames":["有加里ののか"]},
   {"file":"amano-tsubaki.html","name":"甘乃つばき","reading":"あまのつばき","aliases":[],"storeNames":["甘乃つばき"]},
@@ -6,7 +8,7 @@
   {"file":"fujino-tsukasa.html","name":"藤野つかさ","reading":"ふじのつかさ","aliases":[],"storeNames":["奇跡の極上美ボディ女優"]},
   {"file":"hinano-kanon.html","name":"ひなの花音","reading":"ひなのかのん","aliases":[],"storeNames":["ひなの花音"]},
   {"file":"hoshikawa-mai.html","name":"星川まい","reading":"ほしかわまい","aliases":["安西天","あんざいそら"],"storeNames":["星川まい"]},
-  {"file":"hoshinana-nanami.html","name":"星七ななみ","reading":"ほしなななみ","aliases":[],"storeNames":["🎀のあ🎀","海空みに"]},
+  {"file":"hoshinana-nanami.html","name":"星七ななみ","reading":"せなななみ","aliases":[],"storeNames":["🎀のあ🎀"]},
   {"file":"kouzuki-ai.html","name":"紅月愛","reading":"こうづき あい","aliases":[],"storeNames":["紅月愛"]},
   {"file":"kurusu-yuki.html","name":"来栖唯希","reading":"くるすゆき","aliases":[],"storeNames":["くるす"]},
   {"file":"kamiya-shiina.html","name":"華宮椎奈","reading":"かみや しいな","aliases":["華宮しいな"],"storeNames":["あいね【奇跡の現役看護師とA〇】","あいね"]},
@@ -27,5 +29,7 @@
   {"file":"amamiya-kasumi.html","name":"天宮かすみ","reading":"","aliases":[],"storeNames":["杏"]},
   {"file":"jin-yuki.html","name":"神ユキ","reading":"じんゆき","aliases":[],"storeNames":["神ユキ"]},
   {"file":"hinata-yura.html","name":"日向ゆら","reading":"ひなたゆら","aliases":[],"storeNames":["NONOKA【ののか】"]},
-  {"file":"nagisa-yuna.html","name":"渚ゆな","reading":"なぎさゆな","aliases":[],"storeNames":["渚ゆな（ニューハーフ）"]}
+  {"file":"nagisa-yuna.html","name":"渚ゆな","reading":"なぎさゆな","aliases":[],"storeNames":["渚ゆな（ニューハーフ）"]},
+  {"file":"sorano-kira.html","name":"空野きら","reading":"そらのきら","aliases":[],"storeNames":["こさめ","空野きら【現役A▽女優！】","空野きら"]},
+  {"file":"wakatsuki-yui.html","name":"若月由衣","reading":"わかつきゆい","aliases":[],"storeNames":["若〇由衣【AV女優降臨✨】","由衣【ゆい】※AV女優","このか"]}
 ]
