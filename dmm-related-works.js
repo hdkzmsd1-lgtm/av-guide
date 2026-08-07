@@ -41,18 +41,12 @@
         label.textContent = "PR";
         card.prepend(label, image);
       };
-      if ("IntersectionObserver" in window) {
-        const observer = new IntersectionObserver(entries => {
-          entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            observer.unobserve(entry.target);
-            loadCard(entry.target);
-          });
-        }, { rootMargin: "200px 0px" });
-        cards.forEach((card, index) => index < 5 ? loadCard(card) : observer.observe(card));
-      } else {
-        cards.slice(0, 5).forEach(loadCard);
-      }
+      const loadVisibleCards = visibleCards => visibleCards.filter(card => !card.hidden).forEach(loadCard);
+      loadVisibleCards(cards);
+      window.addEventListener("avguide:cards-visible", event => {
+        const visibleCards = Array.isArray(event.detail?.cards) ? event.detail.cards : cards;
+        loadVisibleCards(visibleCards);
+      });
       // 既存のトップ用おすすめ作品セクションは従来どおり維持します。
       for (const topSection of topSections) {
         const topList = topSection.querySelector(".dmm-work-list");
