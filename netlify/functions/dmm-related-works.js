@@ -74,6 +74,19 @@ function selectAllowedDmmUrl(values) {
     inspectDmmUrl("");
 }
 
+function selectWorkImage(item, preferredSizes) {
+  const available = {
+    large: selectAllowedDmmUrl([item?.imageURL?.large]),
+    list: selectAllowedDmmUrl([item?.imageURL?.list]),
+    small: selectAllowedDmmUrl([item?.imageURL?.small])
+  };
+  for (const size of preferredSizes) {
+    const candidate = available[size];
+    if (candidate?.allowedAfterNormalization && candidate.normalizedUrl) return candidate.normalizedUrl;
+  }
+  return [available.large, available.list, available.small].find(candidate => candidate?.allowedAfterNormalization && candidate.normalizedUrl)?.normalizedUrl || "";
+}
+
 function normalizeName(value) {
   return String(value || "").normalize("NFKC").replace(/[\s　]+/g, "");
 }
@@ -317,11 +330,10 @@ exports.handler = async function handler(event) {
   const items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
   const validation = [];
   const works = items.map((item, index) => {
-    const image = selectAllowedDmmUrl([
-      item?.imageURL?.large,
-      item?.imageURL?.list,
-      item?.imageURL?.small
-    ]);
+    const imageLarge = selectAllowedDmmUrl([item?.imageURL?.large]);
+    const imageList = selectAllowedDmmUrl([item?.imageURL?.list]);
+    const imageSmall = selectAllowedDmmUrl([item?.imageURL?.small]);
+    const image = imageLarge.allowedAfterNormalization ? imageLarge : imageList.allowedAfterNormalization ? imageList : imageSmall;
     const affiliateUrl = selectAllowedDmmUrl([
       item?.affiliateURL,
       item?.affiliateURLsp
@@ -339,6 +351,9 @@ exports.handler = async function handler(event) {
       imageHost: image.host,
       imageAllowedBeforeNormalization: image.allowedBeforeNormalization,
       imageAllowedAfterNormalization: image.allowedAfterNormalization,
+      imageLargeAllowedAfterNormalization: imageLarge.allowedAfterNormalization,
+      imageListAllowedAfterNormalization: imageList.allowedAfterNormalization,
+      imageSmallAllowedAfterNormalization: imageSmall.allowedAfterNormalization,
       hasAffiliateUrl: affiliateUrl.hasUrl,
       affiliateProtocol: affiliateUrl.protocol,
       affiliateHost: affiliateUrl.host,
@@ -355,6 +370,11 @@ exports.handler = async function handler(event) {
       releaseDate: item.date ? String(item.date) : "",
       maker: item?.iteminfo?.maker?.[0]?.name ? String(item.iteminfo.maker[0].name) : "",
       image: image.normalizedUrl,
+      images: {
+        large: imageLarge.normalizedUrl,
+        list: imageList.normalizedUrl,
+        small: imageSmall.normalizedUrl
+      },
       affiliateUrl: affiliateUrl.normalizedUrl
     };
   }).filter(Boolean).sort((a, b) => b._score - a._score || a._index - b._index).slice(0, 3).map(({ _score, _index, ...work }) => work);

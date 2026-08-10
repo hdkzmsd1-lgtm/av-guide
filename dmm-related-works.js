@@ -8,6 +8,36 @@
 
   const isHomepage = !section && topSections.length > 0;
   const cache = new Map();
+  const imageSources = {
+    homepage: ["list", "small", "large"],
+    related: ["large", "list", "small"],
+    top: ["list", "small", "large"]
+  };
+  const buildImage = (work, actressName, kind, altText) => {
+    const source = work?.images || {};
+    const src = imageSources[kind].map(key => source[key]).find(Boolean) || work?.image || "";
+    if (!src) return null;
+    const shell = document.createElement("span");
+    shell.className = `dmm-media-shell dmm-media-${kind} is-loading`;
+    const image = document.createElement("img");
+    image.className = "dmm-media-image";
+    image.src = src;
+    image.alt = altText || `${actressName} 関連作品（PR）`;
+    image.loading = "lazy";
+    image.decoding = "async";
+    const settle = state => {
+      shell.classList.remove("is-loading");
+      if (state === "error") shell.classList.add("is-error");
+    };
+    if (image.complete) {
+      settle();
+    } else {
+      image.addEventListener("load", () => settle(), { once: true });
+      image.addEventListener("error", () => settle("error"), { once: true });
+    }
+    shell.append(image);
+    return shell;
+  };
   const fetchWorks = async actressName => {
     if (!actressName) return null;
     if (cache.has(actressName)) return cache.get(actressName);
@@ -29,17 +59,13 @@
         const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
         const payload = await fetchWorks(actressName);
         const work = Array.isArray(payload?.works) ? payload.works[0] : null;
-        if (!work?.image || !work?.title || card.querySelector(".dmm-representative-image")) return;
-        const image = document.createElement("img");
-        image.className = "dmm-representative-image";
-        image.src = work.image;
-        image.alt = `${actressName} 関連作品（PR）`;
-        image.loading = "lazy";
-        image.decoding = "async";
+        if (!work?.title || card.querySelector(".dmm-representative-image")) return;
+        const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
+        if (!media) return;
         const label = document.createElement("span");
         label.className = "dmm-representative-label";
         label.textContent = "PR";
-        card.prepend(label, image);
+        card.prepend(label, media);
       };
       const loadVisibleCards = visibleCards => visibleCards.filter(card => !card.hidden).forEach(loadCard);
       loadVisibleCards(cards);
@@ -54,15 +80,15 @@
         if (!topList || !topActress) continue;
         const topPayload = await fetchWorks(topActress);
         const work = Array.isArray(topPayload?.works) ? topPayload.works[0] : null;
-        if (!work?.image || !work?.title || !work?.affiliateUrl) continue;
+        if (!work?.title || !work?.affiliateUrl) continue;
         const card = document.createElement("article");
         card.className = "dmm-work-card";
-        const image = document.createElement("img");
-        image.src = work.image; image.alt = work.title; image.loading = "lazy"; image.decoding = "async";
+        const media = buildImage(work, topActress, "top", work.title);
+        if (!media) continue;
         const details = document.createElement("div");
         const title = document.createElement("h3"); title.textContent = work.title;
         const link = document.createElement("a"); link.className = "button dmm-work-button"; link.href = work.affiliateUrl; link.target = "_blank"; link.rel = "sponsored noopener noreferrer"; link.textContent = "FANZAで作品を見る";
-        details.append(title, link); card.append(image, details); topList.replaceChildren(card);
+        details.append(title, link); card.append(media, details); topList.replaceChildren(card);
         const articleUrl = topSection.dataset.articleUrl;
         if (articleUrl) card.addEventListener("click", event => { if (!event.target.closest("a")) window.location.href = articleUrl; });
         topSection.hidden = false;
@@ -81,16 +107,13 @@
     const createCards = (works, includeDate, includeMaker) => {
       const fragment = document.createDocumentFragment();
       works.forEach(work => {
-      if (!work?.title || !work?.image || !work?.affiliateUrl) return;
+      if (!work?.title || !work?.affiliateUrl) return;
 
       const card = document.createElement("article");
       card.className = "dmm-work-card";
 
-      const image = document.createElement("img");
-      image.src = work.image;
-      image.alt = work.title;
-      image.loading = "lazy";
-      image.decoding = "async";
+      const media = buildImage(work, actress, "related", work.title);
+      if (!media) return;
 
       const details = document.createElement("div");
       const title = document.createElement("h3");
@@ -117,7 +140,7 @@
       link.textContent = "FANZAで作品を見る";
       details.append(link);
 
-      card.append(image, details);
+      card.append(media, details);
       fragment.append(card);
       });
       return fragment;
@@ -129,17 +152,13 @@
       if (!actressName || card.querySelector(".dmm-representative-image")) continue;
       const cardPayload = actressName === actress ? payload : await fetchWorks(actressName);
       const work = Array.isArray(cardPayload?.works) ? cardPayload.works[0] : null;
-      if (!work?.image || !work?.title) continue;
-      const image = document.createElement("img");
-      image.className = "dmm-representative-image";
-      image.src = work.image;
-      image.alt = `${actressName} 関連作品（PR）`;
-      image.loading = "lazy";
-      image.decoding = "async";
+      if (!work?.title) continue;
+      const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
+      if (!media) continue;
       const label = document.createElement("span");
       label.className = "dmm-representative-label";
       label.textContent = "PR";
-      card.prepend(label, image);
+      card.prepend(label, media);
     }
 
     if (section && list) {
