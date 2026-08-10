@@ -9,9 +9,9 @@
   const isHomepage = !section && topSections.length > 0;
   const cache = new Map();
   const imageSources = {
-    homepage: ["list", "small", "large"],
+    homepage: ["large", "list", "small"],
     related: ["large", "list", "small"],
-    top: ["list", "small", "large"]
+    top: ["large", "list", "small"]
   };
   const buildImage = (work, actressName, kind, altText) => {
     const source = work?.images || {};
