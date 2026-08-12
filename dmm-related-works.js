@@ -8,6 +8,8 @@
 
   const isHomepage = !section && topSections.length > 0;
   const cache = new Map();
+  const homepageQueue = [];
+  let homepageActiveLoads = 0;
   const imageSources = {
     homepage: ["large", "list", "small"],
     related: ["large", "list", "small"],
@@ -48,26 +50,43 @@
     cache.set(actressName, request);
     return request;
   };
+  const loadHomepageCard = async card => {
+    if (!card || card.dataset.dmmLoaded === "true") return;
+    card.dataset.dmmLoaded = "true";
+    const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
+    const payload = await fetchWorks(actressName);
+    const work = Array.isArray(payload?.works) ? payload.works[0] : null;
+    if (!work?.title || card.querySelector(".dmm-representative-image")) return;
+    const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
+    if (!media) return;
+    const label = document.createElement("span");
+    label.className = "dmm-representative-label";
+    label.textContent = "PR";
+    card.prepend(label, media);
+  };
+  const pumpHomepageQueue = () => {
+    while (homepageActiveLoads < 2 && homepageQueue.length) {
+      const card = homepageQueue.shift();
+      homepageActiveLoads += 1;
+      loadHomepageCard(card).catch(() => {}).finally(() => {
+        homepageActiveLoads -= 1;
+        pumpHomepageQueue();
+      });
+    }
+  };
+  const queueHomepageCards = cards => {
+    cards.filter(card => card && !card.hidden).forEach(card => {
+      if (card.dataset.dmmLoaded === "true" || homepageQueue.includes(card)) return;
+      homepageQueue.push(card);
+    });
+    pumpHomepageQueue();
+  };
 
   try {
     // トップページでは代表画像をカードの表示領域に入った時だけ取得します。
     if (isHomepage) {
       const cards = [...document.querySelectorAll("#latest .article-list .text-article-card")];
-      const loadCard = async card => {
-        if (!card || card.dataset.dmmLoaded === "true") return;
-        card.dataset.dmmLoaded = "true";
-        const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
-        const payload = await fetchWorks(actressName);
-        const work = Array.isArray(payload?.works) ? payload.works[0] : null;
-        if (!work?.title || card.querySelector(".dmm-representative-image")) return;
-        const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
-        if (!media) return;
-        const label = document.createElement("span");
-        label.className = "dmm-representative-label";
-        label.textContent = "PR";
-        card.prepend(label, media);
-      };
-      const loadVisibleCards = visibleCards => visibleCards.filter(card => !card.hidden).forEach(loadCard);
+      const loadVisibleCards = visibleCards => queueHomepageCards(visibleCards);
       loadVisibleCards(cards);
       window.addEventListener("avguide:cards-visible", event => {
         const visibleCards = Array.isArray(event.detail?.cards) ? event.detail.cards : cards;
