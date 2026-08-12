@@ -22,7 +22,7 @@
     const shell = document.createElement("span");
     shell.className = `dmm-media-shell dmm-media-${kind} is-loading`;
     const image = document.createElement("img");
-    image.className = "dmm-media-image";
+    image.className = `dmm-media-image${kind === "homepage" ? " dmm-representative-image" : ""}`;
     image.src = src;
     image.alt = altText || `${actressName} 関連作品（PR）`;
     image.loading = "lazy";
@@ -51,24 +51,37 @@
     return request;
   };
   const loadHomepageCard = async card => {
-    if (!card || card.dataset.dmmLoaded === "true") return;
-    card.dataset.dmmLoaded = "true";
+    if (!card || ["loading", "loaded", "failed"].includes(card.dataset.dmmImageStatus)) return;
+    if (card.querySelector(".dmm-representative-image")) {
+      card.dataset.dmmImageStatus = "loaded";
+      return;
+    }
+    card.dataset.dmmImageStatus = "loading";
     const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
     const payload = await fetchWorks(actressName);
     const work = Array.isArray(payload?.works) ? payload.works[0] : null;
-    if (!work?.title || card.querySelector(".dmm-representative-image")) return;
+    if (!work?.title || card.querySelector(".dmm-representative-image")) {
+      card.dataset.dmmImageStatus = "failed";
+      return;
+    }
     const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
-    if (!media) return;
+    if (!media) {
+      card.dataset.dmmImageStatus = "failed";
+      return;
+    }
     const label = document.createElement("span");
     label.className = "dmm-representative-label";
     label.textContent = "PR";
     card.prepend(label, media);
+    card.dataset.dmmImageStatus = "loaded";
   };
   const pumpHomepageQueue = () => {
     while (homepageActiveLoads < 2 && homepageQueue.length) {
       const card = homepageQueue.shift();
       homepageActiveLoads += 1;
-      loadHomepageCard(card).catch(() => {}).finally(() => {
+      loadHomepageCard(card).catch(() => {
+        card.dataset.dmmImageStatus = "failed";
+      }).finally(() => {
         homepageActiveLoads -= 1;
         pumpHomepageQueue();
       });
@@ -76,7 +89,9 @@
   };
   const queueHomepageCards = cards => {
     cards.filter(card => card && !card.hidden).forEach(card => {
-      if (card.dataset.dmmLoaded === "true" || homepageQueue.includes(card)) return;
+      if (card.dataset.dmmImageStatus && card.dataset.dmmImageStatus !== "idle") return;
+      if (card.querySelector(".dmm-representative-image") || homepageQueue.includes(card)) return;
+      card.dataset.dmmImageStatus = "queued";
       homepageQueue.push(card);
     });
     pumpHomepageQueue();
@@ -164,21 +179,6 @@
       });
       return fragment;
     };
-
-    const representativeCards = [...document.querySelectorAll("#latest .article-list .text-article-card")];
-    for (const card of representativeCards) {
-      const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
-      if (!actressName || card.querySelector(".dmm-representative-image")) continue;
-      const cardPayload = actressName === actress ? payload : await fetchWorks(actressName);
-      const work = Array.isArray(cardPayload?.works) ? cardPayload.works[0] : null;
-      if (!work?.title) continue;
-      const media = buildImage(work, actressName, "homepage", `${actressName} 関連作品（PR）`);
-      if (!media) continue;
-      const label = document.createElement("span");
-      label.className = "dmm-representative-label";
-      label.textContent = "PR";
-      card.prepend(label, media);
-    }
 
     if (section && list) {
       const fragment = createCards(payload.works.slice(0, 3), true, true);
