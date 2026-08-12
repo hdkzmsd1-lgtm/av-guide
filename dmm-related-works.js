@@ -92,18 +92,18 @@
         const visibleCards = Array.isArray(event.detail?.cards) ? event.detail.cards : cards;
         loadVisibleCards(visibleCards);
       });
-      // 既存のトップ用おすすめ作品セクションは従来どおり維持します。
-      for (const topSection of topSections) {
+      const topSectionTask = Promise.allSettled(topSections.map(async topSection => {
+        // 既存のトップ用おすすめ作品セクションは従来どおり維持します。
         const topList = topSection.querySelector(".dmm-work-list");
         const topActress = topSection.dataset.actress;
-        if (!topList || !topActress) continue;
+        if (!topList || !topActress) return;
         const topPayload = await fetchWorks(topActress);
         const work = Array.isArray(topPayload?.works) ? topPayload.works[0] : null;
-        if (!work?.title || !work?.affiliateUrl) continue;
+        if (!work?.title || !work?.affiliateUrl) return;
         const card = document.createElement("article");
         card.className = "dmm-work-card";
         const media = buildImage(work, topActress, "top", work.title);
-        if (!media) continue;
+        if (!media) return;
         const details = document.createElement("div");
         const title = document.createElement("h3"); title.textContent = work.title;
         const link = document.createElement("a"); link.className = "button dmm-work-button"; link.href = work.affiliateUrl; link.target = "_blank"; link.rel = "sponsored noopener noreferrer"; link.textContent = "FANZAで作品を見る";
@@ -111,8 +111,8 @@
         const articleUrl = topSection.dataset.articleUrl;
         if (articleUrl) card.addEventListener("click", event => { if (!event.target.closest("a")) window.location.href = articleUrl; });
         topSection.hidden = false;
-      }
-      return;
+      }));
+      topSectionTask.catch(() => {});
     }
 
     const actress = section?.dataset.actress || topSections[0]?.dataset.actress;
