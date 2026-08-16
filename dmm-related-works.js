@@ -29,6 +29,7 @@
     image.decoding = "async";
     const settle = state => {
       shell.classList.remove("is-loading");
+      shell.classList.add("is-loaded");
       if (state === "error") shell.classList.add("is-error");
     };
     if (image.complete) {
