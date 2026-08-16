@@ -11,7 +11,7 @@
   const homepageQueue = [];
   let homepageActiveLoads = 0;
   const imageSources = {
-    homepage: ["large", "list", "small"],
+    homepage: ["list", "large", "small"],
     related: ["large", "list", "small"],
     top: ["large", "list", "small"]
   };
