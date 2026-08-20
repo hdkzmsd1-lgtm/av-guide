@@ -191,8 +191,30 @@ function inspectFanzaVideoFloor(payload) {
   };
 }
 
+function inspectFanzaMonoDvdFloor(payload) {
+  const sites = Array.isArray(payload?.result?.site) ? payload.result.site : [];
+  const site = sites.find(candidate => candidate?.code === "FANZA");
+  const services = Array.isArray(site?.service) ? site.service : [];
+  const service = services.find(candidate => candidate?.code === "mono");
+  const floors = Array.isArray(service?.floor) ? service.floor : [];
+  const floor = floors.find(candidate => candidate?.code === "dvd");
+  return {
+    found: { site: Boolean(site), service: Boolean(service), floor: Boolean(floor) },
+    value: site && service && floor ? { site: site.code, service: service.code, floor: floor.code } : null
+  };
+}
+
 function initialDiagnostic(apiId, affiliateId, targetActress) {
   return {
+    actressName: targetActress,
+    matched: false,
+    searchRoute: null,
+    title: "",
+    actressNames: [],
+    imageURL: { large: "", list: "", small: "" },
+    representativeImageUrl: "",
+    affiliateURL: "",
+    matchReason: null,
     environment: {
       DMM_API_ID: Boolean(apiId),
       DMM_AFFILIATE_ID: Boolean(affiliateId)
@@ -230,6 +252,7 @@ function initialDiagnostic(apiId, affiliateId, targetActress) {
       retrievedCount: 0,
       adoptedCount: 0,
       validation: [],
+      candidates: [],
       parameters: {
         article: "actress",
         article_id: null,
@@ -251,15 +274,18 @@ exports.handler = async function handler(event) {
   }
 
   const debug = event?.queryStringParameters?.debug === "1";
+  const diagnosticMode = event?.queryStringParameters?.diagnostic === "1";
   const requestedActress = event?.queryStringParameters?.actress;
+  const requestedCid = event?.queryStringParameters?.cid?.trim() || "";
   const targetActress = requestedActress?.trim() || "";
   const apiId = process.env.DMM_API_ID || "";
   const affiliateId = process.env.DMM_AFFILIATE_ID || "";
   const diagnostic = initialDiagnostic(apiId, affiliateId, targetActress);
   const finish = (works, stage, reason) => {
-    if (!debug) return works.length ? jsonResponse({ works, actress: targetActress }, "public, max-age=300, s-maxage=3600") : emptyResponse();
+    if (!debug && !diagnosticMode) return works.length ? jsonResponse({ works, actress: targetActress }, "public, max-age=300, s-maxage=3600") : emptyResponse();
     diagnostic.stage = stage;
     diagnostic.reason = reason;
+    diagnostic.requestedCid = requestedCid || null;
     return diagnosticResponse(diagnostic);
   };
 
@@ -305,6 +331,7 @@ exports.handler = async function handler(event) {
   if (!actressResult.payload) return finish([], "ActressSearch", "invalid_json_response");
   if (actressResult.httpStatus < 200 || actressResult.httpStatus >= 300) return finish([], "ActressSearch", "http_error");
   const keywordFallback = exactIds.length === 0;
+  diagnostic.searchRoute = keywordFallback ? "digitalKeyword" : "actressSearch";
   if (exactIds.length > 1) return finish([], "ActressSearch", "ambiguous_exact_match");
   const actressId = exactIds[0];
 
@@ -321,7 +348,11 @@ exports.handler = async function handler(event) {
   if (floorResult.requestFailed) return finish([], "FloorList", "request_failed");
   if (!floorResult.payload) return finish([], "FloorList", "invalid_json_response");
   if (floorResult.httpStatus < 200 || floorResult.httpStatus >= 300) return finish([], "FloorList", "http_error");
-  if (!floorInspection.value) return finish([], "FloorList", "fanza_video_floor_not_found");
+  if (!floorInspection.value) {
+    const monoInspection = inspectFanzaMonoDvdFloor(floorResult.payload);
+    if (!monoInspection.value) return finish([], "FloorList", "fanza_video_and_mono_dvd_floor_not_found");
+    floorInspection.value = monoInspection.value;
+  }
 
   const itemParameters = keywordFallback
     ? { ...auth, ...floorInspection.value, keyword: targetActress, hits: "20", sort: "date" }
@@ -340,6 +371,27 @@ exports.handler = async function handler(event) {
     itemMeta = resultMeta(itemResult.payload, secrets);
     Object.assign(diagnostic.ItemList.parameters, { keyword: targetActress });
   }
+  if (!items.length && itemKeywordFallback && floorInspection.value.service === "digital") {
+    const monoInspection = inspectFanzaMonoDvdFloor(floorResult.payload);
+    if (monoInspection.value) {
+      itemResult = await fetchDmmJson("ItemList", { ...auth, ...monoInspection.value, keyword: targetActress, hits: "20", sort: "date" });
+      items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+      itemMeta = resultMeta(itemResult.payload, secrets);
+      Object.assign(diagnostic.ItemList.parameters, { keyword: targetActress, ...monoInspection.value });
+      diagnostic.searchRoute = "monoDvdKeyword";
+    }
+  }
+  if (!items.length && diagnosticMode && requestedCid) {
+    const monoInspection = inspectFanzaMonoDvdFloor(floorResult.payload);
+    if (monoInspection.value) {
+      itemResult = await fetchDmmJson("ItemList", { ...auth, ...monoInspection.value, cid: requestedCid, hits: "20", sort: "date" });
+      items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+      itemMeta = resultMeta(itemResult.payload, secrets);
+      itemKeywordFallback = true;
+      diagnostic.searchRoute = "cid";
+      Object.assign(diagnostic.ItemList.parameters, { cid: requestedCid, ...monoInspection.value });
+    }
+  }
   const validation = [];
   const works = items.map((item, index) => {
     const imageLarge = selectAllowedDmmUrl([item?.imageURL?.large]);
@@ -351,6 +403,11 @@ exports.handler = async function handler(event) {
       item?.affiliateURLsp
     ]);
     const rejectionReasons = [];
+    const actressNames = Array.isArray(item?.iteminfo?.actress)
+      ? item.iteminfo.actress.map(candidate => String(candidate?.name || "")).filter(Boolean)
+      : [];
+    const titleMatches = normalizeName(item?.title).toLowerCase().includes(normalizeName(targetActress).toLowerCase());
+    const actressMatches = actressNames.some(name => normalizeName(name).toLowerCase().includes(normalizeName(targetActress).toLowerCase()));
     if (itemKeywordFallback && !itemMatchesActress(item, targetActress)) rejectionReasons.push("本人一致なし");
     if (!item?.title) rejectionReasons.push("missing_title");
     if (!image.hasUrl) rejectionReasons.push("missing_image");
@@ -358,6 +415,11 @@ exports.handler = async function handler(event) {
     if (!affiliateUrl.hasUrl) rejectionReasons.push("missing_affiliate_url");
     else if (!affiliateUrl.allowedAfterNormalization) rejectionReasons.push("affiliate_url_not_allowed");
     validation.push({
+      title: item?.title ? String(item.title) : "",
+      actressNames,
+      contentId: item?.content_id ? String(item.content_id) : item?.product_id ? String(item.product_id) : "",
+      titleMatches,
+      actressMatches,
       hasTitle: Boolean(item?.title),
       hasImage: image.hasUrl,
       imageProtocol: image.protocol,
@@ -372,6 +434,14 @@ exports.handler = async function handler(event) {
       affiliateHost: affiliateUrl.host,
       affiliateAllowedBeforeNormalization: affiliateUrl.allowedBeforeNormalization,
       affiliateAllowedAfterNormalization: affiliateUrl.allowedAfterNormalization,
+      imageURL: {
+        large: imageLarge.normalizedUrl || "",
+        list: imageList.normalizedUrl || "",
+        small: imageSmall.normalizedUrl || ""
+      },
+      affiliateURL: affiliateUrl.normalizedUrl || "",
+      representativeImageUrl: imageLarge.normalizedUrl || imageList.normalizedUrl || imageSmall.normalizedUrl || "",
+      matchReason: titleMatches ? "title一致" : actressMatches ? "iteminfo.actress一致" : null,
       hasReleaseDate: Boolean(item?.date),
       rejectionReasons
     });
@@ -400,6 +470,17 @@ exports.handler = async function handler(event) {
     adoptedCount: works.length,
     validation
   });
+  diagnostic.ItemList.candidates = validation;
+  const adopted = validation.find(candidate => !candidate.rejectionReasons.length);
+  if (adopted) {
+    diagnostic.matched = true;
+    diagnostic.title = adopted.title;
+    diagnostic.actressNames = adopted.actressNames;
+    diagnostic.imageURL = adopted.imageURL;
+    diagnostic.representativeImageUrl = adopted.representativeImageUrl;
+    diagnostic.affiliateURL = adopted.affiliateURL;
+    diagnostic.matchReason = adopted.matchReason;
+  }
   if (itemResult.requestFailed) return finish([], "ItemList", "request_failed");
   if (!itemResult.payload) return finish([], "ItemList", "invalid_json_response");
   if (itemResult.httpStatus < 200 || itemResult.httpStatus >= 300) return finish([], "ItemList", "http_error");

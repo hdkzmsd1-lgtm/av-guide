@@ -68,10 +68,9 @@
     const file = card.getAttribute("href")?.split("/").pop();
     const registered = Array.isArray(registry) ? registry.find(entry => entry?.file === file) : null;
     const registeredUrl = typeof registered?.representativeImageUrl === "string" ? registered.representativeImageUrl.trim() : "";
-    const payload = registeredUrl ? null : await fetchWorks(actressName);
     const work = registeredUrl
       ? { title: registered.representativeImageAlt || `${actressName} 関連作品`, images: { large: registeredUrl } }
-      : (Array.isArray(payload?.works) ? payload.works[0] : null);
+      : null;
     if (!work?.title || card.querySelector(".dmm-representative-image")) {
       card.dataset.dmmImageStatus = "failed";
       return;
@@ -119,6 +118,8 @@
         const visibleCards = Array.isArray(event.detail?.cards) ? event.detail.cards : cards;
         loadVisibleCards(visibleCards);
       });
+      // トップページでは代表画像・おすすめ作品ともにAPI探索を行わず、台帳URLのみ使用します。
+      return;
       const topSectionTask = Promise.allSettled(topSections.map(async topSection => {
         // 既存のトップ用おすすめ作品セクションは従来どおり維持します。
         const topList = topSection.querySelector(".dmm-work-list");
