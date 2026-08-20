@@ -167,6 +167,15 @@ function exactActressIds(payload, targetActress) {
     .filter(Boolean))];
 }
 
+function itemMatchesActress(item, targetActress) {
+  const target = normalizeName(targetActress).toLowerCase();
+  if (!target) return false;
+  const title = normalizeName(item?.title).toLowerCase();
+  if (title.includes(target)) return true;
+  const actresses = Array.isArray(item?.iteminfo?.actress) ? item.iteminfo.actress : [];
+  return actresses.some(candidate => normalizeName(candidate?.name).toLowerCase().includes(target));
+}
+
 function inspectFanzaVideoFloor(payload) {
   const sites = Array.isArray(payload?.result?.site) ? payload.result.site : [];
   const site = sites.find(candidate => candidate?.code === "FANZA");
@@ -295,7 +304,7 @@ exports.handler = async function handler(event) {
   if (actressResult.requestFailed) return finish([], "ActressSearch", "request_failed");
   if (!actressResult.payload) return finish([], "ActressSearch", "invalid_json_response");
   if (actressResult.httpStatus < 200 || actressResult.httpStatus >= 300) return finish([], "ActressSearch", "http_error");
-  if (exactIds.length === 0) return finish([], "ActressSearch", "no_exact_match");
+  const keywordFallback = exactIds.length === 0;
   if (exactIds.length > 1) return finish([], "ActressSearch", "ambiguous_exact_match");
   const actressId = exactIds[0];
 
@@ -314,20 +323,23 @@ exports.handler = async function handler(event) {
   if (floorResult.httpStatus < 200 || floorResult.httpStatus >= 300) return finish([], "FloorList", "http_error");
   if (!floorInspection.value) return finish([], "FloorList", "fanza_video_floor_not_found");
 
-  Object.assign(diagnostic.ItemList.parameters, {
-    article_id: actressId,
-    ...floorInspection.value
-  });
-  const itemResult = await fetchDmmJson("ItemList", {
-    ...auth,
-    ...floorInspection.value,
-    article: "actress",
-    article_id: actressId,
-    hits: "20",
-    sort: "date"
-  });
-  const itemMeta = resultMeta(itemResult.payload, secrets);
-  const items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+  const itemParameters = keywordFallback
+    ? { ...auth, ...floorInspection.value, keyword: targetActress, hits: "20", sort: "date" }
+    : { ...auth, ...floorInspection.value, article: "actress", article_id: actressId, hits: "20", sort: "date" };
+  Object.assign(diagnostic.ItemList.parameters, keywordFallback
+    ? { keyword: targetActress, ...floorInspection.value }
+    : { article_id: actressId, ...floorInspection.value });
+  let itemResult = await fetchDmmJson("ItemList", itemParameters);
+  let itemMeta = resultMeta(itemResult.payload, secrets);
+  let items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+  let itemKeywordFallback = keywordFallback;
+  if (!items.length && !keywordFallback) {
+    itemKeywordFallback = true;
+    itemResult = await fetchDmmJson("ItemList", { ...auth, ...floorInspection.value, keyword: targetActress, hits: "20", sort: "date" });
+    items = Array.isArray(itemResult.payload?.result?.items) ? itemResult.payload.result.items : [];
+    itemMeta = resultMeta(itemResult.payload, secrets);
+    Object.assign(diagnostic.ItemList.parameters, { keyword: targetActress });
+  }
   const validation = [];
   const works = items.map((item, index) => {
     const imageLarge = selectAllowedDmmUrl([item?.imageURL?.large]);
@@ -339,6 +351,7 @@ exports.handler = async function handler(event) {
       item?.affiliateURLsp
     ]);
     const rejectionReasons = [];
+    if (itemKeywordFallback && !itemMatchesActress(item, targetActress)) rejectionReasons.push("本人一致なし");
     if (!item?.title) rejectionReasons.push("missing_title");
     if (!image.hasUrl) rejectionReasons.push("missing_image");
     else if (!image.allowedAfterNormalization) rejectionReasons.push("image_url_not_allowed");
