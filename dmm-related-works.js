@@ -10,6 +10,11 @@
   const cache = new Map();
   const homepageQueue = [];
   let homepageActiveLoads = 0;
+  const registryRequest = isHomepage
+    ? fetch("article-registry.json", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(response => response.ok ? response.json() : [])
+        .catch(() => [])
+    : Promise.resolve([]);
   const imageSources = {
     homepage: ["large", "list", "small"],
     related: ["large", "list", "small"],
@@ -59,8 +64,14 @@
     }
     card.dataset.dmmImageStatus = "loading";
     const actressName = card.dataset.actress || card.querySelector("h3")?.textContent.trim();
-    const payload = await fetchWorks(actressName);
-    const work = Array.isArray(payload?.works) ? payload.works[0] : null;
+    const registry = await registryRequest;
+    const file = card.getAttribute("href")?.split("/").pop();
+    const registered = Array.isArray(registry) ? registry.find(entry => entry?.file === file) : null;
+    const registeredUrl = typeof registered?.representativeImageUrl === "string" ? registered.representativeImageUrl.trim() : "";
+    const payload = registeredUrl ? null : await fetchWorks(actressName);
+    const work = registeredUrl
+      ? { title: registered.representativeImageAlt || `${actressName} 関連作品`, images: { large: registeredUrl } }
+      : (Array.isArray(payload?.works) ? payload.works[0] : null);
     if (!work?.title || card.querySelector(".dmm-representative-image")) {
       card.dataset.dmmImageStatus = "failed";
       return;
