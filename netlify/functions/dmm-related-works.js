@@ -172,6 +172,34 @@ function inspectFanzaMonoDvdFloor(payload) {
 }
 
 exports.handler = async function handler(event) {
+  const batchMode = event?.httpMethod === "POST" && event?.queryStringParameters?.mode === "representative-batch";
+  if (batchMode) {
+    let body = {};
+    try { body = JSON.parse(event.body || "{}"); } catch { body = {}; }
+    const items = Array.isArray(body.items) ? body.items.slice(0, 20) : [];
+    const results = await Promise.all(items.map(async item => {
+      const file = typeof item?.file === "string" ? item.file : "";
+      const actressName = typeof item?.actressName === "string" ? item.actressName.trim() : "";
+      if (!file || !actressName) return { file, actressName, matched: false, reason: "invalid_item" };
+      const response = await exports.handler({ httpMethod: "GET", queryStringParameters: { actress: actressName } });
+      let payload = {};
+      try { payload = JSON.parse(response.body || "{}"); } catch { payload = {}; }
+      const work = Array.isArray(payload.works) ? payload.works[0] : null;
+      if (!work?.image) return { file, actressName, matched: false, reason: "no本人一致作品" };
+      return {
+        file,
+        actressName,
+        matched: true,
+        representativeImageUrl: work.image,
+        representativeImageAlt: `${actressName} 関連作品 PR`,
+        source: "dmm",
+        searchRoute: "normalRelatedWorks",
+        title: work.title,
+        matchReason: "title一致 または iteminfo.actress一致"
+      };
+    }));
+    return jsonResponse({ ok: true, results }, "no-store");
+  }
   if (event?.httpMethod && event.httpMethod !== "GET") {
     return { statusCode: 405, headers: { Allow: "GET" }, body: "" };
   }
