@@ -78,4 +78,5 @@
   {"file":"kazehaya-ran.html","name":"風早らん","reading":"かぜはやらん","aliases":[],"storeNames":["らん"],"storesCount":1,"confirmedAt":"2026-08-21","region":"kanagawa","areaLabel":"神奈川県・川崎堀之内南町/川崎駅周辺"}
   ,{"file":"kuramoto-sumire.html","name":"倉本すみれ","reading":"くらもとすみれ","aliases":[],"storeNames":["公式ページで掲載名を確認できず"],"storesCount":1,"confirmedAt":"2026-08-21","region":"tokyo","areaLabel":"東京都・渋谷"}
   ,{"file":"asakaze-yui.html","name":"浅風ゆい","reading":"あさかぜゆい","aliases":[],"storeNames":["みかん"],"storesCount":1,"confirmedAt":"2026-08-21","region":"ibaraki","areaLabel":"茨城県・土浦市"}
+  ,{"file":"futaba-ayuka.html","name":"双葉あゆか","reading":"ふたばあゆか","aliases":[],"storeNames":["AYAME","あゆか"],"storesCount":2,"confirmedAt":"2026-08-22","region":"tokyo","regions":["tokyo","tochigi"],"areaLabel":"東京都・新宿/歌舞伎町、栃木県・宇都宮"}
 ]
